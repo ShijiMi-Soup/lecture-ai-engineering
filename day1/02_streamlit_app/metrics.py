@@ -1,21 +1,28 @@
 # metrics.py
-import streamlit as st
-import nltk
-from janome.tokenizer import Tokenizer
 import re
-from sklearn.metrics.pairwise import cosine_similarity
+
+import nltk
+import streamlit as st
+from janome.tokenizer import Tokenizer
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 # NLTKのヘルパー関数（エラー時フォールバック付き）
 try:
-    nltk.download('punkt', quiet=True)
-    from nltk.translate.bleu_score import sentence_bleu as nltk_sentence_bleu
+    nltk.download("punkt", quiet=True)
     from nltk.tokenize import word_tokenize as nltk_word_tokenize
-    print("NLTK loaded successfully.") # デバッグ用
+    from nltk.translate.bleu_score import sentence_bleu as nltk_sentence_bleu
+
+    print("NLTK loaded successfully.")  # デバッグ用
 except Exception as e:
-    st.warning(f"NLTKの初期化中にエラーが発生しました: {e}\n簡易的な代替関数を使用します。")
+    st.toast(
+        f"NLTKの初期化中にエラーが発生しました: {e}\n簡易的な代替関数を使用します。",
+        icon="⚠️",
+    )
+
     def nltk_word_tokenize(text):
         return text.split()
+
     def nltk_sentence_bleu(references, candidate):
         # 簡易BLEUスコア（完全一致/部分一致）
         ref_words = set(references[0])
@@ -23,16 +30,22 @@ except Exception as e:
         common_words = ref_words.intersection(cand_words)
         precision = len(common_words) / len(cand_words) if cand_words else 0
         recall = len(common_words) / len(ref_words) if ref_words else 0
-        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
-        return f1 # F1スコアを返す（簡易的な代替）
+        f1 = (
+            2 * (precision * recall) / (precision + recall)
+            if (precision + recall) > 0
+            else 0
+        )
+        return f1  # F1スコアを返す（簡易的な代替）
+
 
 def initialize_nltk():
     """NLTKのデータダウンロードを試みる関数"""
     try:
-        nltk.download('punkt', quiet=True)
-        print("NLTK Punkt data checked/downloaded.") # デバッグ用
+        nltk.download("punkt", quiet=True)
+        print("NLTK Punkt data checked/downloaded.")  # デバッグ用
     except Exception as e:
-        st.error(f"NLTKデータのダウンロードに失敗しました: {e}")
+        st.toast(f"NLTKデータのダウンロードに失敗しました: {e}", icon="❌")
+
 
 def calculate_metrics(answer, correct_answer):
     """回答と正解から評価指標を計算する"""
@@ -41,7 +54,7 @@ def calculate_metrics(answer, correct_answer):
     similarity_score = 0.0
     relevance_score = 0.0
 
-    if not answer: # 回答がない場合は計算しない
+    if not answer:  # 回答がない場合は計算しない
         return bleu_score, similarity_score, word_count, relevance_score
 
     # 単語数のカウント
@@ -60,40 +73,49 @@ def calculate_metrics(answer, correct_answer):
             candidate = nltk_word_tokenize(answer_lower)
             # ゼロ除算エラーを防ぐ
             if candidate:
-                bleu_score = nltk_sentence_bleu(reference, candidate, weights=(0.25, 0.25, 0.25, 0.25)) # 4-gram BLEU
+                bleu_score = nltk_sentence_bleu(
+                    reference, candidate, weights=(0.25, 0.25, 0.25, 0.25)
+                )  # 4-gram BLEU
             else:
                 bleu_score = 0.0
-        except Exception as e:
-            # st.warning(f"BLEUスコア計算エラー: {e}")
-            bleu_score = 0.0 # エラー時は0
+        except Exception:
+            # st.toast(f"BLEUスコア計算エラー: {e}", icon="⚠️")
+            bleu_score = 0.0  # エラー時は0
 
         # コサイン類似度の計算
         try:
             vectorizer = TfidfVectorizer()
             # fit_transformはリストを期待するため、リストで渡す
-            if answer_lower.strip() and correct_answer_lower.strip(): # 空文字列でないことを確認
-                tfidf_matrix = vectorizer.fit_transform([answer_lower, correct_answer_lower])
-                similarity_score = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
+            if (
+                answer_lower.strip() and correct_answer_lower.strip()
+            ):  # 空文字列でないことを確認
+                tfidf_matrix = vectorizer.fit_transform(
+                    [answer_lower, correct_answer_lower]
+                )
+                similarity_score = cosine_similarity(
+                    tfidf_matrix[0:1], tfidf_matrix[1:2]
+                )[0][0]
             else:
                 similarity_score = 0.0
-        except Exception as e:
-            # st.warning(f"類似度スコア計算エラー: {e}")
-            similarity_score = 0.0 # エラー時は0
+        except Exception:
+            # st.toast(f"類似度スコア計算エラー: {e}", icon="⚠️")
+            similarity_score = 0.0  # エラー時は0
 
         # 関連性スコア（キーワードの一致率などで簡易的に計算）
         try:
-            answer_words = set(re.findall(r'\w+', answer_lower))
-            correct_words = set(re.findall(r'\w+', correct_answer_lower))
+            answer_words = set(re.findall(r"\w+", answer_lower))
+            correct_words = set(re.findall(r"\w+", correct_answer_lower))
             if len(correct_words) > 0:
                 common_words = answer_words.intersection(correct_words)
                 relevance_score = len(common_words) / len(correct_words)
             else:
                 relevance_score = 0.0
-        except Exception as e:
-            # st.warning(f"関連性スコア計算エラー: {e}")
-            relevance_score = 0.0 # エラー時は0
+        except Exception:
+            # st.toast(f"関連性スコア計算エラー: {e}", icon="⚠️")
+            relevance_score = 0.0  # エラー時は0
 
     return bleu_score, similarity_score, word_count, relevance_score
+
 
 def get_metrics_descriptions():
     """評価指標の説明を返す"""
@@ -104,5 +126,5 @@ def get_metrics_descriptions():
         "類似度スコア (similarity_score)": "TF-IDFベクトルのコサイン類似度による、正解と回答の意味的な類似性 (0〜1の値)",
         "単語数 (word_count)": "回答に含まれる単語の数。情報量や詳細さの指標",
         "関連性スコア (relevance_score)": "正解と回答の共通単語の割合。トピックの関連性を表す (0〜1の値)",
-        "効率性スコア (efficiency_score)": "正確性を応答時間で割った値。高速で正確な回答ほど高スコア"
+        "効率性スコア (efficiency_score)": "正確性を応答時間で割った値。高速で正確な回答ほど高スコア",
     }
