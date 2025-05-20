@@ -78,13 +78,6 @@ def preprocessor():
 @pytest.fixture
 def train_model(sample_data, preprocessor):
     """モデルの学習とテストデータの準備"""
-    # モデルが存在する場合は、PEREV_MODEL_PATHへコピーする
-    if os.path.exists(MODEL_PATH):
-        os.makedirs(MODEL_DIR, exist_ok=True)
-        with open(MODEL_PATH, "rb") as f:
-            model = pickle.load(f)
-        with open(PREV_MODEL_PATH, "wb") as f:
-            pickle.dump(model, f)
 
     # データの分割とラベル変換
     X = sample_data.drop("Survived", axis=1)
