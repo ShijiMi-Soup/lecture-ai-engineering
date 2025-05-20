@@ -187,6 +187,10 @@ def test_model_against_previous_version(train_model):
     """モデルの精度を以前のバージョンと比較"""
     model, X_test, y_test = train_model
 
+    # 以前のモデルが存在しない場合はスキップ
+    if not os.path.exists(PREV_MODEL_PATH):
+        pytest.skip("以前のモデルが存在しないためスキップします")
+
     # 以前のモデルを読み込む
     with open(PREV_MODEL_PATH, "rb") as f:
         previous_model = pickle.load(f)
