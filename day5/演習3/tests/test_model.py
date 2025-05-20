@@ -1,21 +1,23 @@
 import os
-import pytest
-import pandas as pd
-import numpy as np
 import pickle
 import time
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+import numpy as np
+import pandas as pd
+import pytest
 from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.impute import SimpleImputer
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 # テスト用データとモデルパスを定義
 DATA_PATH = os.path.join(os.path.dirname(__file__), "../data/Titanic.csv")
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "../models")
 MODEL_PATH = os.path.join(MODEL_DIR, "titanic_model.pkl")
+PREV_MODEL_PATH = os.path.join(MODEL_DIR, "titanic_model_prev.pkl")
 
 
 @pytest.fixture
@@ -76,6 +78,14 @@ def preprocessor():
 @pytest.fixture
 def train_model(sample_data, preprocessor):
     """モデルの学習とテストデータの準備"""
+    # モデルが存在する場合は、PEREV_MODEL_PATHへコピーする
+    if os.path.exists(MODEL_PATH):
+        os.makedirs(MODEL_DIR, exist_ok=True)
+        with open(MODEL_PATH, "rb") as f:
+            model = pickle.load(f)
+        with open(PREV_MODEL_PATH, "wb") as f:
+            pickle.dump(model, f)
+
     # データの分割とラベル変換
     X = sample_data.drop("Survived", axis=1)
     y = sample_data["Survived"].astype(int)
@@ -168,6 +178,28 @@ def test_model_reproducibility(sample_data, preprocessor):
     predictions1 = model1.predict(X_test)
     predictions2 = model2.predict(X_test)
 
-    assert np.array_equal(
-        predictions1, predictions2
-    ), "モデルの予測結果に再現性がありません"
+    assert np.array_equal(predictions1, predictions2), (
+        "モデルの予測結果に再現性がありません"
+    )
+
+
+def test_model_against_previous_version(train_model):
+    """モデルの精度を以前のバージョンと比較"""
+    model, X_test, y_test = train_model
+
+    # 以前のモデルを読み込む
+    with open(PREV_MODEL_PATH, "rb") as f:
+        previous_model = pickle.load(f)
+
+    # 以前のモデルで予測
+    y_pred_previous = previous_model.predict(X_test)
+    accuracy_previous = accuracy_score(y_test, y_pred_previous)
+
+    # 現在のモデルと比較
+    y_pred_current = model.predict(X_test)
+    accuracy_current = accuracy_score(y_test, y_pred_current)
+
+    assert accuracy_current >= accuracy_previous, (
+        f"現在のモデルの精度が以前のモデルより低いです: "
+        f"現在: {accuracy_current}, 以前: {accuracy_previous}"
+    )
