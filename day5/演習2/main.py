@@ -1,15 +1,17 @@
 import os
-import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.impute import SimpleImputer
 import pickle
 import time
+
 import great_expectations as gx
+import pandas as pd
+from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.impute import SimpleImputer
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
 
 class DataLoader:
     """データロードを行うクラス"""
@@ -186,7 +188,7 @@ class ModelTester:
     def save_model(model, path="models/titanic_model.pkl"):
         model_dir = "models"
         os.makedirs(model_dir, exist_ok=True)
-        model_path = os.path.join(model_dir, f"titanic_model.pkl")
+        model_path = os.path.join(model_dir, "titanic_model.pkl")
         with open(model_path, "wb") as f:
             pickle.dump(model, f)
         return path
@@ -238,14 +240,14 @@ def test_model_performance():
     metrics = ModelTester.evaluate_model(model, X_test, y_test)
 
     # ベースラインとの比較
-    assert ModelTester.compare_with_baseline(
-        metrics, 0.75
-    ), f"モデル性能がベースラインを下回っています: {metrics['accuracy']}"
+    assert ModelTester.compare_with_baseline(metrics, 0.75), (
+        f"モデル性能がベースラインを下回っています: {metrics['accuracy']}"
+    )
 
     # 推論時間の確認
-    assert (
-        metrics["inference_time"] < 1.0
-    ), f"推論時間が長すぎます: {metrics['inference_time']}秒"
+    assert metrics["inference_time"] < 1.0, (
+        f"推論時間が長すぎます: {metrics['inference_time']}秒"
+    )
 
 
 if __name__ == "__main__":
